@@ -1,0 +1,8 @@
+include:
+  - project: 'lico/gitlab-runner-configure'
+    file:
+      - 'default.yml'
+      - 'python/default.yml'
+      - 'python/fossa.yml'
+      - 'python/ssrb.yml'
+      - 'python/twine.yml'

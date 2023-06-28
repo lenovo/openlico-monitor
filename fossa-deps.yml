@@ -1,0 +1,3 @@
+vendored-dependencies:
+- name: openlico-monitor
+  path: lico
