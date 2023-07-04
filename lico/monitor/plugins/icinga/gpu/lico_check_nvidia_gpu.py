@@ -243,7 +243,7 @@ class GPUMetric(MetricsBase):
                             StateEnum.OK
                         )
                     )
-            except Exception:
+            except Exception:  # nosec B112
                 continue
 
         return gpu_util

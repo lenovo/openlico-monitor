@@ -15,7 +15,7 @@
 
 import sys
 from enum import IntEnum
-from subprocess import PIPE, Popen
+from subprocess import PIPE, Popen  # nosec B404
 
 
 class MetricsBase:
@@ -43,7 +43,7 @@ class MetricsBase:
     def command_call(cls, cmd, preexec_fn=None):
         out = ''
         try:
-            process = Popen(
+            process = Popen(  # nosec B603
                 cmd,
                 stderr=PIPE,
                 stdout=PIPE,

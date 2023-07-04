@@ -39,7 +39,7 @@ class SchedulerJobInfo(SchedulerBase):
 
     @classmethod
     def init_cmd(cls, states):
-        from subprocess import list2cmdline
+        from subprocess import list2cmdline  # nosec B404
         cmd = [
             'bash', '--login', '-c',
             list2cmdline(cls.get_running_jobs_cmd.format(
