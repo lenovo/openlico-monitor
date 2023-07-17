@@ -14,6 +14,8 @@
 # limitations under the License.
 import argparse
 
+from redfish.rest.v1 import RetriesExhaustedError
+
 from lico.monitor.plugins.icinga.helper.base import MetricsBase, PluginData
 from lico.monitor.plugins.icinga.outband.redfish.common import (
     RedfishConnection,
@@ -34,12 +36,15 @@ class PowerMetric(MetricsBase):
     def node_power(cls, connection, cmd_args):
 
         try:
-            service_urls = connection.get_service_url(cmd_args.root_service)
-            metrics = conn.get_metric_by_identify(
+            services = connection.sysinfo.get('Links', {}).get(
+                cmd_args.res_instance)
+            service_urls = [serv.get('@odata.id') for serv in services]
+            metrics = connection.get_metric_by_identify(
                 service_urls, cmd_args.res_type, cmd_args.property,
                 cmd_args.identify, cmd_args.metric)
+            value = 0.0
             for metric_data in metrics:
-                value = sum(metric_data.metric.values())
+                value += sum(metric_data.metric.values())
             power_value = cls._get_value(value)
         except Exception as e:
             cls.print_err(e)
@@ -82,7 +87,10 @@ def parse_command_line():
     group.add_argument('--password', help="BMC login password;")
 
     group = parser.add_argument_group(title="Optional Arguments")
-    group.add_argument('--root-service', default='Chassis', help="""
+    group.add_argument('--sys_url', default=None, help="""
+           Redfish system url, default is None;
+           """)
+    group.add_argument('--res_instance', default='Chassis', help="""
         Resource instances, default is Chassis;
         """)
     group.add_argument('--res_type', default='Power', help="""
@@ -129,6 +137,9 @@ if __name__ == '__main__':
     try:
         with RedfishConnection(args) as conn:
             get_power_info(plugin_data, conn, args)
+    except RetriesExhaustedError:
+        if args.verbose:
+            print("The maximum number of attempts has been reached.")
     except Exception as e:
         if args.verbose:
             print(e)
