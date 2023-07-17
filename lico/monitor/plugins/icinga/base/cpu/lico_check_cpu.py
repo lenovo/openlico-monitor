@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import argparse
+import json
 import os
 import re
 import time
@@ -105,20 +106,34 @@ class CPUSocketMetric(MetricsBase):
             "NUMA node0 CPU(s)":"0-3",
         }
         """
-        out, err, ret_code = cls.command_call(['lscpu'])
+
+        """
+        For the explanation of "lscpu -J":
+            When util-linux version < 2.39.rc1, the default is to use
+            subsections only when output on a terminal and flattened output
+            on a non-terminal.
+
+            When util-linux version >= 2.39.rc1, add the following parameter,
+            --hierarchic[=when]
+               Use subsections in summary output. For backward
+               compatibility, the default is to use subsections only when
+               output on a terminal and flattened output on a non-terminal.
+               The optional argument when can be never, always or auto. If
+               the when argument is omitted, it defaults to "always".
+
+        For more information,
+        please see https://www.man7.org/linux/man-pages/man1/lscpu.1.html
+        """
+        out, err, ret_code = cls.command_call(['lscpu', '-J'])
         if ret_code:
             cls.print_err(out + err)
             return {}
 
         output_dict = dict()
-        data_list = out.decode().strip().split('\n')
-
-        for data in data_list:
-            try:
-                key, value = data.split(':')
-                output_dict[key] = value.strip()
-            except Exception as e:
-                print(data, e)
+        for info in json.loads(out).get('lscpu', []):
+            if not info['field']:
+                continue
+            output_dict[info['field'][:-1]] = info['data']
 
         return output_dict
 
