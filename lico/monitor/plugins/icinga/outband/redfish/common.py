@@ -82,7 +82,7 @@ class RedfishConnection:
                                model_property, identify: dict, metric):
         metric_data_list = []
         for service_url in service_urls:
-            complete_url = service_url + '/' + physical_enclosure
+            complete_url = self.url_path_join(service_url, physical_enclosure)
             service_data = self.rf_get(service_url)
             if service_data.get(physical_enclosure):
                 data = self.rf_get(complete_url)
@@ -119,3 +119,10 @@ class RedfishConnection:
 
             return ident_key, ident_values
         return None, []
+
+    @staticmethod
+    def url_path_join(*paths):
+        return "/".join(
+            [path.rstrip(
+                "/") if path.endswith("/") else path for path in paths]
+        ) + "/"
