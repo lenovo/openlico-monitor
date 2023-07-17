@@ -52,11 +52,9 @@ class HealthMetric(MetricsBase):
                 systems_info = conn.rf_get(service_url)
                 logservices_path = systems_info.get(
                     "LogServices").get('@odata.id')
-                logservices_info = conn.rf_get(logservices_path).get('Members')
-                logservices_list = \
-                    [i.get('@odata.id') for i in logservices_info]
-                log_path = "/".join([logservices_path, args.res_type])
-                if log_path not in logservices_list:
+                log_path = conn.url_path_join(logservices_path, args.res_type)
+                verify = cls.check_logpath(logservices_path, log_path)
+                if not verify:
                     continue
                 log_info = conn.rf_get(log_path)
                 entries_path = log_info.get(
@@ -75,7 +73,7 @@ class HealthMetric(MetricsBase):
                             critical_count += 1
                         summary['badreadings'].append(res_dict)
             summary['health'] = health.name
-            if summary['health'] is None:
+            if not summary['badreadings']:
                 return []
         except Exception as e:
             cls.print_err(e)
@@ -94,6 +92,21 @@ class HealthMetric(MetricsBase):
             cls.print_err(e)
         finally:
             return level
+
+    @classmethod
+    def check_logpath(cls, logservices_path, log_path):
+        logservices_info = conn.rf_get(logservices_path).get('Members')
+        logservices_list = \
+            [i.get('@odata.id') for i in logservices_info]
+        verify = False
+        for logservices in logservices_list:
+            verify = conn.url_verify(log_path, logservices)
+            if verify:
+                break
+        else:
+            cls.print_err(f'Url {log_path} verification failure,'
+                          f'please check the parameters entered')
+        return verify
 
 
 def node_health(conn, args):

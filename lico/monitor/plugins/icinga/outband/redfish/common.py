@@ -126,3 +126,9 @@ class RedfishConnection:
             [path.rstrip(
                 "/") if path.endswith("/") else path for path in paths]
         ) + "/"
+
+    @staticmethod
+    def url_verify(new_url, old_url):
+        return RedfishConnection.url_path_join(
+            new_url) == RedfishConnection.url_path_join(
+            old_url)
