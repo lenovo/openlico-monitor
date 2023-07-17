@@ -16,6 +16,8 @@ import argparse
 import json
 from enum import IntEnum
 
+from redfish.rest.v1 import RetriesExhaustedError
+
 from lico.monitor.plugins.icinga.helper.base import MetricsBase, PluginData
 from lico.monitor.plugins.icinga.outband.redfish.common import (
     RedfishConnection,
@@ -46,15 +48,14 @@ class HealthMetric(MetricsBase):
         try:
             critical_count = 0
             summary = {'badreadings': [], 'health': None}
-            service_urls = conn.get_service_url(args.root_service)
+            service_urls = conn.get_service_url(args.res_instance)
             health = StateEnum.OK
             for service_url in service_urls:
                 systems_info = conn.rf_get(service_url)
                 logservices_path = systems_info.get(
                     "LogServices").get('@odata.id')
                 log_path = conn.url_path_join(logservices_path, args.res_type)
-                verify = cls.check_logpath(logservices_path, log_path)
-                if not verify:
+                if not cls.check_log_path(logservices_path, log_path):
                     continue
                 log_info = conn.rf_get(log_path)
                 entries_path = log_info.get(
@@ -94,19 +95,19 @@ class HealthMetric(MetricsBase):
             return level
 
     @classmethod
-    def check_logpath(cls, logservices_path, log_path):
+    def check_log_path(cls, logservices_path, log_path):
         logservices_info = conn.rf_get(logservices_path).get('Members')
         logservices_list = \
             [i.get('@odata.id') for i in logservices_info]
-        verify = False
+        is_matched = False
         for logservices in logservices_list:
-            verify = conn.url_verify(log_path, logservices)
-            if verify:
+            is_matched = conn.url_verify(log_path, logservices)
+            if is_matched:
                 break
         else:
             cls.print_err(f'Url {log_path} verification failure,'
                           f'please check the parameters entered')
-        return verify
+        return is_matched
 
 
 def node_health(conn, args):
@@ -133,7 +134,7 @@ def parse_command_line():
     group.add_argument('--password', help="BMC login password;")
 
     group = parser.add_argument_group(title="optional arguments")
-    group.add_argument('--root-service', default='Systems', help="""
+    group.add_argument('--res_instance', default='Systems', help="""
     resource instances, default is Systems;
     """)
     group.add_argument('--res_type', default='ActiveLog', help="""
@@ -166,6 +167,9 @@ if __name__ == '__main__':
     try:
         with RedfishConnection(args) as conn:
             get_health_info(plugin_data, conn, args)
+    except RetriesExhaustedError:
+        if args.verbose:
+            print("The maximum number of attempts has been reached.")
     except Exception as e:
         if args.verbose:
             print(e)
