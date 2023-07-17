@@ -14,6 +14,8 @@
 # limitations under the License.
 import argparse
 
+from redfish.rest.v1 import RetriesExhaustedError
+
 from lico.monitor.plugins.icinga.helper.base import MetricsBase, PluginData
 from lico.monitor.plugins.icinga.outband.redfish.common import (
     RedfishConnection,
@@ -24,7 +26,9 @@ class TempMetric(MetricsBase):
     @classmethod
     def node_temperature(cls, conn, args):
         try:
-            service_urls = conn.get_service_url(args.root_service)
+            services = conn.sysinfo.get('Links', {}).get(
+                args.res_instance)
+            service_urls = [serv.get('@odata.id') for serv in services]
             metrics = conn.get_metric_by_identify(
                 service_urls, args.res_type, args.property,
                 args.identify, args.metric)
@@ -71,7 +75,10 @@ def parse_command_line():
     group.add_argument('--password', help="BMC login password;")
 
     group = parser.add_argument_group(title="Optional Arguments")
-    group.add_argument('--root_service', default='Chassis', help="""
+    group.add_argument('--sys_url', default=None, help="""
+    Redfish system url, default is None;
+    """)
+    group.add_argument('--res_instance', default='Chassis', help="""
     Resource instances, default is Chassis;
     """)
     group.add_argument('--res_type', default='Thermal', help="""
@@ -114,6 +121,9 @@ if __name__ == '__main__':
     try:
         with RedfishConnection(args) as conn:
             get_temperature_info(plugin_data, conn, args)
+    except RetriesExhaustedError:
+        if args.verbose:
+            print("The maximum number of attempts has been reached.")
     except Exception as e:
         if args.verbose:
             print(e)

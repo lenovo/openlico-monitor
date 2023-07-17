@@ -68,6 +68,29 @@ class RedfishConnection:
     def raise_error(err_data, rf_url):
         raise Exception(f"{rf_url}: {err_data}")
 
+    @property
+    def sysinfo(self):
+        overview = self.connection.get(self.base_url).dict
+        if 'Systems' not in overview:
+            raise Exception('Redfish not ready')
+        systems = overview['Systems']['@odata.id']
+        systems = self.connection.get(systems).dict.get("Members", [])
+        if self.cli_args.sys_url:
+            for system in systems:
+                if system['@odata.id'] == self.cli_args.sys_url:
+                    self.sysurl = self.cli_args.sys_url
+                    break
+            else:
+                raise Exception(
+                    'Specified sysurl not found: {0}'.format(
+                        self.cli_args.sys_url))
+        else:
+            if len(systems) != 1:
+                raise Exception(
+                    'Multi system manager, sysurl is required parameter')
+            self.sysurl = systems[0]['@odata.id']
+        return self.connection.get(self.sysurl).dict
+
     def get_service_url(self, service, base_url=None):
         base_url = base_url if base_url is not None else self.base_url
         collection = self.rf_get(f'{base_url}{service}')
@@ -78,13 +101,13 @@ class RedfishConnection:
 
         return service_urls
 
-    def get_metric_by_identify(self, service_urls, physical_enclosure,
+    def get_metric_by_identify(self, service_urls, res_type,
                                model_property, identify: dict, metric):
         metric_data_list = []
         for service_url in service_urls:
-            complete_url = self.url_path_join(service_url, physical_enclosure)
+            complete_url = self.url_path_join(service_url, res_type)
             service_data = self.rf_get(service_url)
-            if service_data.get(physical_enclosure):
+            if service_data.get(res_type):
                 data = self.rf_get(complete_url)
                 property_data = data.get(model_property)
                 metric_data_list += self.parse_property_by_identify(
