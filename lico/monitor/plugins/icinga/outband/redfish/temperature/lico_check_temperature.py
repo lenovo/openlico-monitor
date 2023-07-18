@@ -14,8 +14,6 @@
 # limitations under the License.
 import argparse
 
-from redfish.rest.v1 import RetriesExhaustedError
-
 from lico.monitor.plugins.icinga.helper.base import MetricsBase, PluginData
 from lico.monitor.plugins.icinga.outband.redfish.common import (
     RedfishConnection,
@@ -38,7 +36,7 @@ class TempMetric(MetricsBase):
         except Exception as e:
             cls.print_err(e)
             return []
-        return [cls.build_point('node_temp', temp, 'float', '')]
+        return [cls.build_point('node_temp', float(temp), 'float', '')]
 
 
 def node_temp(conn, args):
@@ -66,51 +64,39 @@ def get_temperature_info(plugin_data, conn, args):
 
 
 def parse_command_line():
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter, add_help=False)
-
-    group = parser.add_argument_group(title="Require Arguments")
-    group.add_argument('--host', help="BMC IP address;")
-    group.add_argument('--username', help="BMC login user;")
-    group.add_argument('--password', help="BMC login password;")
-
-    group = parser.add_argument_group(title="Optional Arguments")
-    group.add_argument('--sys_url', default=None, help="""
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--host', help="BMC IP address;", required=True)
+    parser.add_argument('--username', help="BMC login user;", required=True)
+    parser.add_argument('--password', help="BMC login password;",
+                        required=True)
+    parser.add_argument('--sys_url', default=None, help="""
     Redfish system url, default is None;
     """)
-    group.add_argument('--res_instance', default='Chassis', help="""
+    parser.add_argument('--res_instance', default='Chassis', help="""
     Resource instances, default is Chassis;
     """)
-    group.add_argument('--res_type', default='Thermal', help="""
+    parser.add_argument('--res_type', default='Thermal', help="""
     Resource type, default is Thermal;
     """)
-    group.add_argument('--property', default='Temperatures', help="""
+    parser.add_argument('--property', default='Temperatures', help="""
     Resource property, default is Temperatures;
     """)
-    group.add_argument('--identify', default='Name=Ambient Temp', help="""
+    parser.add_argument('--identify', default='Name=Ambient Temp', help="""
     Resource object identify, default is 'Name=Ambient Temp';
     """)
-    group.add_argument('--metric', default='ReadingCelsius', help="""
+    parser.add_argument('--metric', default='ReadingCelsius', help="""
     Resource object metric, default is ReadingCelsius;
     """)
-    group.add_argument('--timeout', default=5, type=int, help="""
+    parser.add_argument('--timeout', default=5, type=int, help="""
     Timeout in seconds, default is 5s;
     """)
-    group.add_argument('--max_attempt', default=1, type=int, help="""
+    parser.add_argument('--max_attempt', default=1, type=int, help="""
     Max attempt times, default is 1;
     """)
-    group.add_argument('--verbose', action='store_true', help="""
+    parser.add_argument('--verbose', action='store_true', help="""
     Verbose mode;
     """)
-    group.add_argument("-h", "--help", action='store_true',
-                       help="show this help message and exit")
-
     result = parser.parse_args()
-    if result.help:
-        parser.print_help()
-        print("")
-        exit(0)
-
     return result
 
 
@@ -121,11 +107,8 @@ if __name__ == '__main__':
     try:
         with RedfishConnection(args) as conn:
             get_temperature_info(plugin_data, conn, args)
-    except RetriesExhaustedError:
-        if args.verbose:
-            print("The maximum number of attempts has been reached.")
     except Exception as e:
         if args.verbose:
-            print(e)
+            raise e
     finally:
         plugin_data.exit()
