@@ -72,7 +72,8 @@ class HealthMetric(MetricsBase):
                             critical_count += 1
                         summary['badreadings'].append(res_dict)
             summary['health'] = health.name
-            if not summary['badreadings']:
+
+            if summary['health'] is None:
                 return []
         except Exception as e:
             cls.print_err(e)
