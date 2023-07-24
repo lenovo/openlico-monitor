@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import http
+import logging
+from tempfile import NamedTemporaryFile
 
 import redfish
 from attrs import define
@@ -155,3 +157,21 @@ class RedfishConnection:
         return RedfishConnection.url_path_join(
             new_url) == RedfishConnection.url_path_join(
             old_url)
+
+
+class RedfishLogger:
+    def __init__(self, verbose):
+        self.verbose = verbose
+        self.logfile = None
+
+    def set_logger(self):
+        if not self.verbose:
+            self.logfile = NamedTemporaryFile()
+            loggerformat = \
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            return redfish.redfish_logger(
+                self.logfile.name, loggerformat, logging.ERROR)
+
+    def close(self):
+        if self.logfile is not None:
+            self.logfile.close()
