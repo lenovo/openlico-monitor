@@ -18,7 +18,7 @@ from enum import IntEnum
 
 from lico.monitor.plugins.icinga.helper.base import MetricsBase, PluginData
 from lico.monitor.plugins.icinga.outband.redfish.common import (
-    RedfishConnection,
+    RedfishConnection, RedfishLogger,
 )
 
 
@@ -151,11 +151,14 @@ def parse_command_line():
 if __name__ == '__main__':
     args = parse_command_line()
     plugin_data = PluginData()
+    logger = RedfishLogger(args.verbose)
     try:
+        logger.set_logger()
         with RedfishConnection(args) as conn:
             get_health_info(plugin_data, conn, args)
     except Exception as e:
         if args.verbose:
             raise e
     finally:
+        logger.close()
         plugin_data.exit()
