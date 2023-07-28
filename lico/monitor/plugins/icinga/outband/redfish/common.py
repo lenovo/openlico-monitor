@@ -33,7 +33,9 @@ class VendorGeneric(abc.ABCMeta):
 class VendorLenovo(VendorGeneric):
     name = "Lenovo"
 
-    health = {}
+    health = {
+        "uri": "/redfish/v1/Systems/1/LogServices/ActiveLog/Entries/"
+    }
     power = {
         "uri": "/redfish/v1/Chassis/1/Power/",
         "property": "PowerControl",
@@ -57,7 +59,10 @@ class VendorLenovo(VendorGeneric):
 class VendorDell(VendorGeneric):
     name = "Dell"
 
-    health = {}
+    health = {
+        "uri": "/redfish/v1/Managers"
+               "/iDRAC.Embedded.1/LogServices/FaultList/Entries"
+    }
     power = {
         "uri": "/redfish/v1/Chassis/1/Power/",
         "property": "PowerControl",
@@ -82,7 +87,9 @@ class VendorDell(VendorGeneric):
 class VendorHPE(VendorGeneric):
     name = "HPE"
 
-    health = {}
+    health = {
+        "uri": "/redfish/v1/Systems/1/LogServices/IML/Entries/"
+    }
     power = {
         "uri": "/redfish/v1/Chassis/1/Power/",
         "property": "PowerControl",

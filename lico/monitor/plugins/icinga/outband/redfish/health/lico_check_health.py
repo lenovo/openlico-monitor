@@ -17,6 +17,7 @@ import json
 from enum import IntEnum
 
 from lico.monitor.plugins.icinga.helper.base import MetricsBase, PluginData
+from lico.monitor.plugins.icinga.outband.redfish import common
 from lico.monitor.plugins.icinga.outband.redfish.common import (
     RedfishConnection, RedfishLogger,
 )
@@ -30,35 +31,42 @@ class StateEnum(IntEnum):
 
 
 class HealthMetric(MetricsBase):
+
     @classmethod
-    def node_health(cls, conn, args):
-        """
-        return example:
-        [OK] - {"badreadings": [{"Id": "2596881", "Message": "Power Supply
-        1 has lost input.", "Severity": "Power Supply 1 has lost input.",
-        "Name": "LogEntry"}, {"Id": "2596882", "Message": "Non-redundant:
-        Sufficient Resources from Redundancy Degraded or Fully Redundant
-        for Power Resource has asserted.", "Severity": "Non-redundant:
-        Sufficient Resources from Redundancy Degraded or Fully Redundant
-        for Power Resource has asserted.", "Name": "LogEntry"}],
-        "health": "Warning"} | node_health_critical_count=0
-        """
+    def get_entries_url(cls, conn, args):
         try:
-            critical_count = 0
-            summary = {'badreadings': [], 'health': None}
-            service_urls = conn.get_service_url(args.res_instance)
-            health = StateEnum.OK
-            for service_url in service_urls:
-                systems_info = conn.rf_get(service_url)
-                logservices_path = systems_info.get(
-                    "LogServices").get('@odata.id')
-                log_path = conn.url_path_join(logservices_path, args.res_type)
-                if not cls.check_log_path(logservices_path, log_path):
-                    continue
-                log_info = conn.rf_get(log_path)
-                entries_path = log_info.get(
-                    "Entries").get('@odata.id')
-                entries_info = conn.rf_get(entries_path)
+            if args.data_url is not None:
+                return [args.data_url]
+            elif args.vendor is not None:
+                vendor = getattr(common, f"Vendor{args.vendor}")
+                return [vendor.health.get("uri")]
+            else:
+                entries_url_list = []
+                service_urls = conn.get_service_url(args.res_instance)
+                for service_url in service_urls:
+                    systems_info = conn.rf_get(service_url)
+                    logservices_path = systems_info.get(
+                        "LogServices").get('@odata.id')
+                    log_path = conn.url_path_join(
+                        logservices_path, args.res_type)
+                    if not cls.check_log_path(logservices_path, log_path):
+                        continue
+                    log_info = conn.rf_get(log_path)
+                    entries_path = log_info.get(
+                        "Entries").get('@odata.id')
+                    entries_url_list.append(entries_path)
+                return entries_url_list
+        except Exception as e:
+            cls.print_err(e)
+
+    @classmethod
+    def node_health(cls, conn, entries_url_list):
+        health = StateEnum.OK
+        summary = {'badreadings': [], 'health': None}
+        critical_count = 0
+        try:
+            for entries_url in entries_url_list:
+                entries_info = conn.rf_get(entries_url)
                 count = entries_info.get("Members@odata.count")
                 if count > 0:
                     for entries in entries_info.get('Members'):
@@ -71,8 +79,7 @@ class HealthMetric(MetricsBase):
                         if cur_health == 'Critical':
                             critical_count += 1
                         summary['badreadings'].append(res_dict)
-            summary['health'] = health.name
-
+                summary['health'] = health.name
             if summary['health'] is None:
                 return []
         except Exception as e:
@@ -111,7 +118,8 @@ class HealthMetric(MetricsBase):
 
 def node_health(conn, args):
     HealthMetric.verbose = args.verbose
-    return HealthMetric.node_health(conn, args)
+    entries_url_list = HealthMetric.get_entries_url(conn, args)
+    return HealthMetric.node_health(conn, entries_url_list)
 
 
 def get_health_info(plugin_data, conn, args):
@@ -135,6 +143,15 @@ def parse_command_line():
     parser.add_argument('--res_type', default='ActiveLog', help="""
     Resource type, default is ActiveLog;
     """)
+    # Preset path
+    parser.add_argument('--data_url', default=None, help="""
+    Resource uri, default is None;
+    If this parameter is specified, the vendor parameter is invalid;
+    """)
+    # vendor
+    parser.add_argument('--vendor', choices=['Dell', 'HPE', 'Lenovo'], help="""
+    Server vendor, Currently only Dell, Lenovo, and HPE are supported;
+    """)
     parser.add_argument('--timeout', default=5, type=int, help="""
     Timeout in seconds, default is 5s;
     """)
@@ -144,14 +161,15 @@ def parse_command_line():
     parser.add_argument('--verbose', action='store_true', help="""
     Verbose mode;
     """)
+
     result = parser.parse_args()
     return result
 
 
 if __name__ == '__main__':
     args = parse_command_line()
-    plugin_data = PluginData()
     logger = RedfishLogger(args.verbose)
+    plugin_data = PluginData()
     try:
         logger.set_logger()
         with RedfishConnection(args) as conn:
