@@ -12,12 +12,71 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import abc
 import http
 import logging
 from tempfile import NamedTemporaryFile
+from typing import List, Tuple
 
 import redfish
 from attrs import define
+
+
+class VendorGeneric(abc.ABCMeta):
+    name = "Generic"
+
+    health = dict()
+    power = dict()
+    temperature = dict()
+
+
+class VendorLenovo(VendorGeneric):
+    name = "Lenovo"
+
+    health = {}
+    power = {}
+    temperature = {
+        "uri": "/redfish/v1/Chassis/1/Thermal/",
+        "property": "Temperatures",
+        "identify": {
+            "key": "Name",
+            "values": ["Ambient Temp", ]
+        },
+        "metric": "ReadingCelsius"
+    }
+
+
+class VendorDell(VendorGeneric):
+    name = "Dell"
+
+    health = {}
+    power = {}
+    temperature = {
+        "uri": "/redfish/v1/Chassis/System.Embedded.1/Thermal/",
+        "property": "Temperatures",
+        "identify": {
+            "key": "Name",
+            # System Board Exhaust Temp
+            "values": ["System Board Inlet Temp", ]
+        },
+        "metric": "ReadingCelsius"
+    }
+
+
+class VendorHPE(VendorGeneric):
+    name = "HPE"
+
+    health = {}
+    power = {}
+    temperature = {
+        "uri": "/redfish/v1/Chassis/1/Thermal/",
+        "property": "Temperatures",
+        "identify": {
+            "key": "Name",
+            "values": ["01-Inlet Ambient", ]
+        },
+        "metric": "ReadingCelsius"
+    }
 
 
 @define
@@ -103,8 +162,9 @@ class RedfishConnection:
 
         return service_urls
 
-    def get_metric_by_identify(self, service_urls, res_type,
-                               model_property, identify: dict, metric):
+    def get_metric_by_identify_from_service(
+            self, service_urls: List, res_type: str, model_property: str,
+            identify: Tuple, metric: str):
         metric_data_list = []
         for service_url in service_urls:
             complete_url = self.url_path_join(service_url, res_type)
@@ -117,11 +177,19 @@ class RedfishConnection:
 
         return metric_data_list
 
-    def parse_property_by_identify(self, property_data, identify,
-                                   metric, metric_url):
-        metric_data_list = []
-        ident_key, ident_values = self.parse_identify(identify)
+    def get_metric_by_identify_from_res(
+            self, res_uri: str, model_property: str, identify: Tuple,
+            metric: str):
+        data = self.rf_get(res_uri)
+        property_data = data.get(model_property)
+        metric = self.parse_property_by_identify(
+            property_data, identify, metric, res_uri)
+        return metric
 
+    def parse_property_by_identify(self, property_data: List, identify: Tuple,
+                                   metric: str, metric_url: str):
+        metric_data_list = []
+        ident_key, ident_values = identify
         if isinstance(property_data, list):
             for pro in property_data:
                 if isinstance(pro, dict):
