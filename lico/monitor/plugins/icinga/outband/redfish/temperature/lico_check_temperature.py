@@ -93,7 +93,7 @@ def parse_command_line():
     property, identify, metric need to match this parameter;
     """)
     parser.add_argument('--vendor', choices=['Dell', 'HPE', 'Lenovo'], help="""
-    Server vendor, default is Lenovo.
+    Server vendor.
     If this parameter is specified, property, identify, metric are invalid;
     """)
     # positioning metric
