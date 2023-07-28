@@ -15,8 +15,9 @@
 import argparse
 
 from lico.monitor.plugins.icinga.helper.base import MetricsBase, PluginData
+from lico.monitor.plugins.icinga.outband.redfish import common
 from lico.monitor.plugins.icinga.outband.redfish.common import (
-    RedfishConnection,
+    RedfishConnection, RedfishLogger,
 )
 
 
@@ -31,19 +32,25 @@ class PowerMetric(MetricsBase):
             return 0.0
 
     @classmethod
-    def node_power(cls, connection, cmd_args):
+    def node_power(cls, conn, args):
 
         try:
-            services = connection.sysinfo.get('Links', {}).get(
-                cmd_args.res_instance)
-            service_urls = [serv.get('@odata.id') for serv in services]
-            metrics = connection.get_metric_by_identify(
-                service_urls, cmd_args.res_type, cmd_args.property,
-                cmd_args.identify, cmd_args.metric)
-            value = 0.0
-            for metric_data in metrics:
-                value += sum(metric_data.metric.values())
-            power_value = cls._get_value(value)
+            if args.data_url:
+                metrics = conn.get_metric_by_identify_from_res(
+                    args.data_url, args.property, args.identify, args.metric
+                )
+            else:
+                services = conn.sysinfo.get('Links', {}).get(
+                    args.res_instance)
+                service_urls = [serv.get('@odata.id') for serv in services]
+
+                metrics = conn.get_metric_by_identify_from_service(
+                    service_urls, args.res_type, args.property,
+                    args.identify, args.metric)
+
+            if len(metrics) < 1 or args.metric not in metrics[0].metric:
+                raise Exception("Power information not found!")
+            power_value = metrics[0].metric.get(args.metric)
         except Exception as e:
             cls.print_err(e)
             return []
@@ -81,6 +88,7 @@ def parse_command_line():
     parser.add_argument('--username', help="BMC login user;", required=True)
     parser.add_argument('--password', help="BMC login password;",
                         required=True)
+    # positioning uri
     parser.add_argument('--sys_url', default=None, help="""
            Redfish system url, default is None;
            """)
@@ -90,6 +98,16 @@ def parse_command_line():
     parser.add_argument('--res_type', default='Power', help="""
         Resource type, default is Power;
         """)
+    parser.add_argument('--data_url', default=None, help="""
+        Resource uri, default is None.
+        If this parameter is specified, the vendor parameter is invalid.
+        property, identify, metric need to match this parameter;
+        """)
+    parser.add_argument('--vendor', choices=['Dell', 'HPE', 'Lenovo'], help="""
+        Server vendor, default is Lenovo.
+        If this parameter is specified, property, identify, metric are invalid;
+        """)
+    # positioning metric
     parser.add_argument('--property', default='PowerControl', help="""
         Resource property, default is PowerControl;
         """)
@@ -118,13 +136,28 @@ def parse_command_line():
 
 if __name__ == '__main__':
     args = parse_command_line()
+    logger = RedfishLogger(args.verbose)
     plugin_data = PluginData()
 
     try:
+        logger.set_logger()
         with RedfishConnection(args) as conn:
+            if args.vendor is not None and args.data_url is None:
+                vendor = getattr(common, f"Vendor{args.vendor}")
+                args.identify = (
+                    vendor.power.get("identify").get("key"),
+                    vendor.power.get("identify").get("values")
+                )
+                args.data_url = vendor.power.get("uri")
+                args.property = vendor.power.get("property")
+                args.metric = vendor.power.get("metric")
+            else:
+                args.identify = conn.parse_identify(str(args.identify))
+
             get_power_info(plugin_data, conn, args)
     except Exception as e:
         if args.verbose:
             raise e
     finally:
         plugin_data.exit()
+        logger.close()

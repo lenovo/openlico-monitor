@@ -25,9 +25,9 @@ class TempMetric(MetricsBase):
     @classmethod
     def node_temperature(cls, conn, args):
         try:
-            if args.res_uri:
+            if args.data_url:
                 metrics = conn.get_metric_by_identify_from_res(
-                    args.res_uri, args.property, args.identify, args.metric
+                    args.data_url, args.property, args.identify, args.metric
                 )
             else:
                 services = conn.sysinfo.get('Links', {}).get(
@@ -87,7 +87,7 @@ def parse_command_line():
     parser.add_argument('--res_type', default='Thermal', help="""
     Resource type, default is Thermal;
     """)
-    parser.add_argument('--res_uri', default=None, help="""
+    parser.add_argument('--data_url', default=None, help="""
     Resource uri, default is None.
     If this parameter is specified, the vendor parameter is invalid.
     property, identify, metric need to match this parameter;
@@ -128,13 +128,13 @@ if __name__ == '__main__':
     try:
         logger.set_logger()
         with RedfishConnection(args) as conn:
-            if args.vendor is not None and args.res_uri is None:
+            if args.vendor is not None and args.data_url is None:
                 vendor = getattr(common, f"Vendor{args.vendor}")
                 args.identify = (
                     vendor.temperature.get("identify").get("key"),
                     vendor.temperature.get("identify").get("values")
                 )
-                args.res_uri = vendor.temperature.get("uri")
+                args.data_url = vendor.temperature.get("uri")
                 args.property = vendor.temperature.get("property")
                 args.metric = vendor.temperature.get("metric")
             else:

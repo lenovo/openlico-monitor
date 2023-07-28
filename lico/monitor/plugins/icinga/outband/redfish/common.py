@@ -34,7 +34,15 @@ class VendorLenovo(VendorGeneric):
     name = "Lenovo"
 
     health = {}
-    power = {}
+    power = {
+        "uri": "/redfish/v1/Chassis/1/Power/",
+        "property": "PowerControl",
+        "identify": {
+            "key": "Name",
+            "values": ["Server Power Control", ]
+        },
+        "metric": "PowerConsumedWatts"
+    }
     temperature = {
         "uri": "/redfish/v1/Chassis/1/Thermal/",
         "property": "Temperatures",
@@ -50,7 +58,15 @@ class VendorDell(VendorGeneric):
     name = "Dell"
 
     health = {}
-    power = {}
+    power = {
+        "uri": "/redfish/v1/Chassis/1/Power/",
+        "property": "PowerControl",
+        "identify": {
+            "key": "Name",
+            "values": ["Server Power Control", ]
+        },
+        "metric": "PowerConsumedWatts"
+    }
     temperature = {
         "uri": "/redfish/v1/Chassis/System.Embedded.1/Thermal/",
         "property": "Temperatures",
@@ -67,7 +83,15 @@ class VendorHPE(VendorGeneric):
     name = "HPE"
 
     health = {}
-    power = {}
+    power = {
+        "uri": "/redfish/v1/Chassis/1/Power/",
+        "property": "PowerControl",
+        "identify": {
+            "key": "MemberId",
+            "values": ["0", ]
+        },
+        "metric": "PowerConsumedWatts"
+    }
     temperature = {
         "uri": "/redfish/v1/Chassis/1/Thermal/",
         "property": "Temperatures",
@@ -178,12 +202,12 @@ class RedfishConnection:
         return metric_data_list
 
     def get_metric_by_identify_from_res(
-            self, res_uri: str, model_property: str, identify: Tuple,
+            self, data_url: str, model_property: str, identify: Tuple,
             metric: str):
-        data = self.rf_get(res_uri)
+        data = self.rf_get(data_url)
         property_data = data.get(model_property)
         metric = self.parse_property_by_identify(
-            property_data, identify, metric, res_uri)
+            property_data, identify, metric, data_url)
         return metric
 
     def parse_property_by_identify(self, property_data: List, identify: Tuple,
