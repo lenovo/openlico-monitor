@@ -15,8 +15,9 @@
 import argparse
 
 from lico.monitor.plugins.icinga.helper.base import MetricsBase, PluginData
+from lico.monitor.plugins.icinga.outband.redfish import common
 from lico.monitor.plugins.icinga.outband.redfish.common import (
-    RedfishConnection,
+    RedfishConnection, RedfishLogger,
 )
 
 
@@ -24,13 +25,20 @@ class TempMetric(MetricsBase):
     @classmethod
     def node_temperature(cls, conn, args):
         try:
-            services = conn.sysinfo.get('Links', {}).get(
-                args.res_instance)
-            service_urls = [serv.get('@odata.id') for serv in services]
-            metrics = conn.get_metric_by_identify(
-                service_urls, args.res_type, args.property,
-                args.identify, args.metric)
-            if len(metrics) < 1 and metrics[0].metric.get(args.metric):
+            if args.res_uri:
+                metrics = conn.get_metric_by_identify_from_res(
+                    args.res_uri, args.property, args.identify, args.metric
+                )
+            else:
+                services = conn.sysinfo.get('Links', {}).get(
+                    args.res_instance)
+                service_urls = [serv.get('@odata.id') for serv in services]
+
+                metrics = conn.get_metric_by_identify_from_service(
+                    service_urls, args.res_type, args.property,
+                    args.identify, args.metric)
+
+            if len(metrics) < 1 or args.metric not in metrics[0].metric:
                 raise Exception("Temperature information not found!")
             temp = metrics[0].metric.get(args.metric)
         except Exception as e:
@@ -69,6 +77,7 @@ def parse_command_line():
     parser.add_argument('--username', help="BMC login user;", required=True)
     parser.add_argument('--password', help="BMC login password;",
                         required=True)
+    # positioning uri
     parser.add_argument('--sys_url', default=None, help="""
     Redfish system url, default is None;
     """)
@@ -78,6 +87,16 @@ def parse_command_line():
     parser.add_argument('--res_type', default='Thermal', help="""
     Resource type, default is Thermal;
     """)
+    parser.add_argument('--res_uri', default=None, help="""
+    Resource uri, default is None.
+    If this parameter is specified, the vendor parameter is invalid.
+    property, identify, metric need to match this parameter;
+    """)
+    parser.add_argument('--vendor', choices=['Dell', 'HPE', 'Lenovo'], help="""
+    Server vendor, default is Lenovo.
+    If this parameter is specified, property, identify, metric are invalid;
+    """)
+    # positioning metric
     parser.add_argument('--property', default='Temperatures', help="""
     Resource property, default is Temperatures;
     """)
@@ -87,6 +106,7 @@ def parse_command_line():
     parser.add_argument('--metric', default='ReadingCelsius', help="""
     Resource object metric, default is ReadingCelsius;
     """)
+    # others
     parser.add_argument('--timeout', default=5, type=int, help="""
     Timeout in seconds, default is 5s;
     """)
@@ -102,13 +122,28 @@ def parse_command_line():
 
 if __name__ == '__main__':
     args = parse_command_line()
+    logger = RedfishLogger(args.verbose)
     plugin_data = PluginData()
 
     try:
+        logger.set_logger()
         with RedfishConnection(args) as conn:
+            if args.vendor is not None and args.res_uri is None:
+                vendor = getattr(common, f"Vendor{args.vendor}")
+                args.identify = (
+                    vendor.temperature.get("identify").get("key"),
+                    vendor.temperature.get("identify").get("values")
+                )
+                args.res_uri = vendor.temperature.get("uri")
+                args.property = vendor.temperature.get("property")
+                args.metric = vendor.temperature.get("metric")
+            else:
+                args.identify = conn.parse_identify(str(args.identify))
+
             get_temperature_info(plugin_data, conn, args)
     except Exception as e:
         if args.verbose:
             raise e
     finally:
         plugin_data.exit()
+        logger.close()
