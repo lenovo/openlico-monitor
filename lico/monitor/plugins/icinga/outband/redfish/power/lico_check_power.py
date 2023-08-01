@@ -50,7 +50,7 @@ class PowerMetric(MetricsBase):
 
             if len(metrics) < 1 or args.metric not in metrics[0].metric:
                 raise Exception("Power information not found!")
-            power_value = metrics[0].metric.get(args.metric)
+            power_value = cls._get_value(metrics[0].metric.get(args.metric))
         except Exception as e:
             cls.print_err(e)
             return []
