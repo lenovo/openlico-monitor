@@ -34,7 +34,8 @@ class VendorLenovo(VendorGeneric):
     name = "Lenovo"
 
     health = {
-        "uri": "/redfish/v1/Systems/1/LogServices/ActiveLog/Entries/"
+        "uri": "/redfish/v1/Systems/1/LogServices/ActiveLog/Entries/",
+        "sensor_key": "MessageArgs"
     }
     power = {
         "uri": "/redfish/v1/Chassis/1/Power/",
@@ -61,7 +62,8 @@ class VendorDell(VendorGeneric):
 
     health = {
         "uri": "/redfish/v1/Managers"
-               "/iDRAC.Embedded.1/LogServices/FaultList/Entries"
+               "/iDRAC.Embedded.1/LogServices/FaultList/Entries",
+        "sensor_key": "MessageArgs"
     }
     power = {
         "uri": "/redfish/v1/Chassis/1/Power/",
@@ -88,7 +90,8 @@ class VendorHPE(VendorGeneric):
     name = "HPE"
 
     health = {
-        "uri": "/redfish/v1/Systems/1/LogServices/IML/Entries/"
+        "uri": "/redfish/v1/Systems/1/LogServices/IML/Entries/",
+        "sensor_key": "Oem,Hpe,ClassDescription",
     }
     power = {
         "uri": "/redfish/v1/Chassis/1/Power/",

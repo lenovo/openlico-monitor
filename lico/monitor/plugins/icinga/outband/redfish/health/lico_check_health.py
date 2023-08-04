@@ -24,10 +24,10 @@ from lico.monitor.plugins.icinga.outband.redfish.common import (
 
 
 class StateEnum(IntEnum):
-    OK = 0
-    Informational = 1
-    Warning = 2
-    Critical = 3
+    ok = 0
+    informational = 1
+    warning = 2
+    critical = 3
 
 
 class HealthMetric(MetricsBase):
@@ -39,6 +39,7 @@ class HealthMetric(MetricsBase):
                 return [args.data_url]
             elif args.vendor is not None:
                 vendor = getattr(common, f"Vendor{args.vendor}")
+                args.sensor_key = vendor.health.get("sensor_key")
                 return [vendor.health.get("uri")]
             else:
                 entries_url_list = []
@@ -61,25 +62,30 @@ class HealthMetric(MetricsBase):
 
     @classmethod
     def node_health(cls, conn, entries_url_list):
-        health = StateEnum.OK
+        health = StateEnum.ok
         summary = {'badreadings': [], 'health': None}
         critical_count = 0
+        sensor_key_list = args.sensor_key.split(',')
         try:
             for entries_url in entries_url_list:
                 entries_info = conn.rf_get(entries_url)
                 count = entries_info.get("Members@odata.count")
                 if count > 0:
                     for entries in entries_info.get('Members'):
+                        cur_health = entries.get('Severity').lower()
+
                         res_dict = {'Id': entries.get('Id'),
                                     'Message': entries.get('Message'),
-                                    'Severity': entries.get('Severity'),
-                                    'Name': entries.get('Name')}
-                        cur_health = entries.get('Severity')
+                                    'Severity': cur_health}
+                        for key in sensor_key_list:
+                            entries = entries.get(key)
+                        res_dict['SensorName'] = ",".join(entries) if \
+                            isinstance(entries, list) else entries
                         health = cls.get_latest_health(health, cur_health)
-                        if cur_health == 'Critical':
+                        if cur_health == StateEnum.critical.name:
                             critical_count += 1
                         summary['badreadings'].append(res_dict)
-                summary['health'] = health.name
+                summary['health'] = health.name.lower()
             if summary['health'] is None:
                 return []
         except Exception as e:
@@ -147,6 +153,11 @@ def parse_command_line():
     parser.add_argument('--data_url', default=None, help="""
     Resource uri, default is None;
     If this parameter is specified, the vendor parameter is invalid;
+    """)
+    parser.add_argument('--sensor_key', default='MessageArgs', help="""
+    The parameter is comma-separated string to locate the key which represents
+    the sersor name.
+    For example: 'Oem,Hpe,ClassDescription';
     """)
     # vendor
     parser.add_argument('--vendor', choices=['Dell', 'HPE', 'Lenovo'], help="""
