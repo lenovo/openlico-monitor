@@ -40,10 +40,10 @@ def get_telemetry(host_ip, token, switches_ports):
     )
 
     metrics = [
-        "Infiniband_MBIn",
-        "Infiniband_MBOut",
-        "Infiniband_PckIn",
-        "Infiniband_PckOut",
+        "Infiniband_MBInRate",
+        "Infiniband_MBOutRate",
+        "Infiniband_PckInRate",
+        "Infiniband_PckOutRate",
     ]
     objects = ["Grid.default." + s for s in switches_ports.keys()]
 
@@ -132,18 +132,18 @@ def build_perf_data(plugin_data, metrics):
     which can be parsed by Icinga
     """
     stat_map = {
-        "Infiniband_MBIn": "traffic_in",
-        "Infiniband_MBOut": "traffic_out",
-        "Infiniband_PckIn": "packet_in",
-        "Infiniband_PckOut": "packet_out",
+        "Infiniband_MBInRate": "traffic_in",
+        "Infiniband_MBOutRate": "traffic_out",
+        "Infiniband_PckInRate": "packet_in",
+        "Infiniband_PckOutRate": "packet_out",
     }
 
     for index, switch in enumerate(metrics["switches"]):
-        name = f"switch_{index}_"
+        name = f"ufm_switch_{index}_"
         statistics = switch["statistics"]
         p = [
             f"{name}{stat_map[k]}={v}"
-            f"{'MB' if k in ['Infiniband_MBIn', 'Infiniband_MBOut'] else ''}"
+            f"{'MB' if 'MB' in k else ''}"
             for k, v in statistics.items()
         ]
         plugin_data.add_perf_data(" ".join(p))
