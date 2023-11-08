@@ -35,6 +35,7 @@ OUTPUT_MAP = {
     'gpu_name': FormatEnum.DICT,
     'gpu_driver': FormatEnum.DICT,
     'gpu_pcie': FormatEnum.DICT,
+    'gpu_uuid': FormatEnum.DICT,
     'mig_profile': FormatEnum.DICT,
     'gpu_static': FormatEnum.DICT,
     'gpu_util': FormatEnum.STRING,
@@ -57,6 +58,7 @@ PARAMS_MAP = {
     'gpu_name': ['gpu_name'],
     'gpu_driver': ['gpu_driver'],
     'gpu_pcie': ['gpu_pcie'],
+    'gpu_uuid': ['gpu_uuid'],
     'mig_profile': ['mig_profile'],
     'gpu_temp': ['gpu_temp'],
     'gpu_util': ['gpu_util'],
@@ -72,7 +74,7 @@ PARAMS_MAP = {
     'gpu_dynamic': ['gpu_util', 'gpu_temp', 'gpu_mem_used',
                     'gpu_mem_total',
                     'gpu_proc_num', 'gpu_util_mem'],
-    'gpu_static': ['gpu_name', 'gpu_driver', 'gpu_pcie'],
+    'gpu_static': ['gpu_name', 'gpu_uuid', 'gpu_driver', 'gpu_pcie'],
     'mig_resource': ['mig_sm_count', 'mig_mem_used', 'mig_mem_total',
                      'mig_proc_num'],
 }
@@ -85,6 +87,7 @@ METRIC_MAP = {
     'gpu_proc_num': 'uuid',
     'gpu_util_mem': 'utilization.memory',
     'gpu_name': 'name',
+    'gpu_uuid': 'uuid',
     'gpu_driver': 'driver_version',
     'gpu_pcie': 'pcie.link.gen.current,pcie.link.gen.max',
     'mig_mode': 'mig.mode.current',
@@ -357,6 +360,19 @@ class GPUMetric(MetricsBase):
             )
         return gpu_pcie_info
 
+    @classmethod
+    def gpu_uuid(cls, content):
+        output = content
+        gpu_uuid_list = list()
+        for gpu_uuid_str in output:
+            index, gpu_uuid = gpu_uuid_str.split(', ')
+            gpu_uuid_list.append(cls.build_point(
+                'gpu{0}_uuid'.format(index),
+                0, 'string', '', {index: {'uuid': gpu_uuid}},
+                StateEnum.OK, index)
+            )
+        return gpu_uuid_list
+
     # Get GPU bandwidth utilization
     @classmethod
     def gpu_util_mem(cls, content):
@@ -606,6 +622,10 @@ def gpu_pcie_max(content):
     return GPUMetric().gpu_pcie_max(content)
 
 
+def gpu_uuid(content):
+    return GPUMetric().gpu_uuid(content)
+
+
 def gpu_mig_mode_current(content):
     return GPUMetric().gpu_mig_mode_current(content)
 
@@ -832,6 +852,26 @@ def get_gpu_pcie_generation(**kwargs):
             )
             plugin_data.add_perf_data(
                 f"gpu{index}_pcie_generation={value}{units}"
+            )
+            plugin_data.set_state(state)
+
+
+def get_gpu_uuid_generation(**kwargs):
+    plugin_data = kwargs['plugin_data']
+    content = kwargs['content']
+    gpu_uuid_list = gpu_uuid(content)
+    if gpu_uuid_list:
+        for gpu_uuid_dict in gpu_uuid_list:
+            metric = gpu_uuid_dict['metric']
+            value = gpu_uuid_dict['value']
+            units = gpu_uuid_dict['units']
+            output = gpu_uuid_dict['output']
+            state = gpu_uuid_dict['state']
+            plugin_data.add_output_data(
+                f"{json.dumps(output)}"
+            )
+            plugin_data.add_perf_data(
+                f"{metric}={value}{units}"
             )
             plugin_data.set_state(state)
 
@@ -1099,6 +1139,11 @@ def add_argument(parser):
                                   Get the product name for each GPU;
                                   """
                                   )
+    gpu_static_group.add_argument('--gpu-uuid', action='store_true',
+                                  help="""
+                                  Get the uuid for each GPU;
+                                  """
+                                  )
     gpu_static_group.add_argument('--gpu-driver', action='store_true',
                                   help="""
                                   Get the driver version for each GPU;
@@ -1156,6 +1201,7 @@ gpu_handle_map = {
         'gpu_util_mem': get_gpu_util_mem,
         'mig_mode': get_gpu_mig_mode_current,
         'gpu_name': get_gpu_model_name,
+        'gpu_uuid': get_gpu_uuid_generation,
         'gpu_driver': get_gpu_driver_version,
         'gpu_pcie': get_gpu_pcie_generation,
         'mig_sm_count': get_mig_sm,
