@@ -26,9 +26,10 @@ requests.packages.urllib3.disable_warnings()
 
 class ValidateIPAddress(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
-        # Matches ip_address or ip_address:port
+        # Matches http<s>://ip_address or http<s>://ip_address:port
         regexp = (
-            r"^(25[0-5]|2[0-4]\d|[0-1]?\d{1,2})\."
+            r"^(https?://)?"
+            r"(25[0-5]|2[0-4]\d|[0-1]?\d{1,2})\."
             r"(25[0-5]|2[0-4]\d|[0-1]?\d{1,2})\."
             r"(25[0-5]|2[0-4]\d|[0-1]?\d{1,2})\."
             r"(25[0-5]|2[0-4]\d|[0-1]?\d{1,2})(:\d{1,5})?$"
@@ -48,11 +49,11 @@ class UfmRequest:
         headers (dict): The headers for the HTTP requests.
     """
 
-    def __init__(self, ip, token, request_type):
+    def __init__(self, base, token, request_type):
         """Initializes a new UfmRequest instance
 
         Args:
-            ip (str): The IP address of the target server.
+            base (str): The base URL of the target server.
             token (str): The authentication token to be included in the request
             headers.
             request_type (str): Used to determine the API endpoint. Possible
@@ -61,7 +62,7 @@ class UfmRequest:
                 - "monitoring_snapshot": To get monitoring data.
                 - "monitoring_start": To start a new monitoring session.
         """
-        self.url = f"https://{ip}/{self._determine_endpoint(request_type)}"
+        self.url = f"{base}/{self._determine_endpoint(request_type)}"
         self.headers = {"Authorization": f"Basic {token}"}
 
     def _determine_endpoint(self, request_type):
@@ -134,12 +135,12 @@ class UfmRequest:
         return r
 
 
-def get_all_switches(host_ip, token):
+def get_all_switches(host, token):
     """
     Fetches information about all switches from the provided host IP and token.
 
     Args:
-        host_ip (str): The IP address of the target UFM server.
+        host (str): The base URL of the target UFM server API.
         token (str): The authentication token for the UFM API.
 
     Returns:
@@ -147,7 +148,7 @@ def get_all_switches(host_ip, token):
         ports as values. The format is:
             {switch_guid: [port1, port2, ...]}.
     """
-    ufm_req = UfmRequest(host_ip, token, request_type="all_switches")
+    ufm_req = UfmRequest(host, token, request_type="all_switches")
 
     res = ufm_req.get()
 
