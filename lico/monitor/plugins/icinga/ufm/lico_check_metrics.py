@@ -21,12 +21,12 @@ from lico.monitor.plugins.icinga.helper.base import PluginData
 from lico.monitor.plugins.icinga.ufm import common
 
 
-def get_telemetry(host_ip, token, switches_ports):
+def get_telemetry(host, token, switches_ports):
     """Creates a one-time monitoring session and recieves data for all switches
     and ports
 
     Args:
-        host_ip (str): The IP address of the target UFM server.
+        host (str): The base URL of the target UFM server API.
         token (str): The authentication token for the UFM API.
         switches_ports (dict): A dictionary containing switch GUIDs as keys and
         list of port GUIDs as values.
@@ -36,7 +36,7 @@ def get_telemetry(host_ip, token, switches_ports):
         switches and ports.
     """
     ufm_req = common.UfmRequest(
-        host_ip, token, request_type="monitoring_snapshot"
+        host, token, request_type="monitoring_snapshot"
     )
 
     metrics = [
@@ -142,8 +142,7 @@ def build_perf_data(plugin_data, metrics):
         name = f"ufm_switch_{index}_"
         statistics = switch["statistics"]
         p = [
-            f"{name}{stat_map[k]}={v}"
-            f"{'MB' if 'MB' in k else ''}"
+            f"{name}{stat_map[k]}={v}" f"{'MB' if 'MB' in k else ''}"
             for k, v in statistics.items()
         ]
         plugin_data.add_perf_data(" ".join(p))
@@ -157,7 +156,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--host",
         action=common.ValidateIPAddress,
-        help="UFM REST API host IP address",
+        help="UFM REST API host base URL",
     )
     parser.add_argument("--token", help="UFM REST API access token")
     args = parser.parse_args()

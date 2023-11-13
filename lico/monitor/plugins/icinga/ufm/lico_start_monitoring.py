@@ -21,11 +21,11 @@ from lico.monitor.plugins.icinga.helper.base import PluginData
 from lico.monitor.plugins.icinga.ufm import common
 
 
-def start_monitoring_session(host_ip, token, switches_ports):
+def start_monitoring_session(host, token, switches_ports):
     """Creates a UFM monitoring session and returns the session id
 
     Args:
-        host_ip (str): The IP address of the target UFM server.
+        host (str): The base URL of the target UFM server API.
         token (str): The authentication token for the UFM API.
         switches_ports (dict): A dictionary containing switch GUIDs as keys and
         list of port GUIDs as values.
@@ -35,9 +35,7 @@ def start_monitoring_session(host_ip, token, switches_ports):
 
         { 'session_id': the id of the created monitoring session }
     """
-    ufm_req = common.UfmRequest(
-        host_ip, token, request_type="monitoring_start"
-    )
+    ufm_req = common.UfmRequest(host, token, request_type="monitoring_start")
 
     metrics = [
         "Infiniband_MBIn",
@@ -69,7 +67,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--host",
         action=common.ValidateIPAddress,
-        help="UFM REST API host IP address",
+        help="UFM REST API host base URL",
     )
     parser.add_argument("--token", help="UFM REST API access token")
     args = parser.parse_args()
