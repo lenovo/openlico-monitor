@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import argparse
+import configparser
 import json
 import re
 
@@ -155,3 +156,21 @@ def get_all_switches(host, token):
     switches_ports = {elem["system_guid"]: elem["ports"] for elem in res}
 
     return switches_ports
+
+
+def read_config_file(file_path):
+    config = configparser.ConfigParser()
+    # Preserve case
+    config.optionxform = str
+    config.read(file_path)
+
+    try:
+        params = dict(config.items("UFM_PLUGIN"))
+    except configparser.NoSectionError:
+        # Wrong config file, exit gracefully
+        host, token = None, None
+    else:
+        host = params["UFM_HOST"].strip("'")
+        token = params["UFM_TOKEN"].strip("'")
+
+    return host, token
