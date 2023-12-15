@@ -64,20 +64,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Creates a UFM monitoring session"
     )
-    parser.add_argument(
-        "--host",
-        action=common.ValidateIPAddress,
-        help="UFM REST API host base URL",
-    )
-    parser.add_argument("--token", help="UFM REST API access token")
+    parser.add_argument("--config-file", help="UFM plugin config file path")
     args = parser.parse_args()
 
-    switches = common.get_all_switches(args.host, args.token)
+    host, token = common.read_config_file(args.config_file)
 
-    session_id = start_monitoring_session(args.host, args.token, switches)
+    if host and token:
+        switches = common.get_all_switches(host, token)
+        session_id = start_monitoring_session(host, token, switches)
 
-    plugin_data = PluginData()
-    plugin_data.add_output_data(json.dumps(session_id))
-    plugin_data.add_perf_data(f"session_id={session_id['session_id']}")
-
-    plugin_data.exit()
+        plugin_data = PluginData()
+        plugin_data.add_output_data(json.dumps(session_id))
+        plugin_data.add_perf_data(f"session_id={session_id['session_id']}")
+        plugin_data.exit()

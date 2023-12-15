@@ -153,21 +153,16 @@ if __name__ == "__main__":
         description="Retrieves telemetry data for all switches and ports from \
             UFM REST API"
     )
-    parser.add_argument(
-        "--host",
-        action=common.ValidateIPAddress,
-        help="UFM REST API host base URL",
-    )
-    parser.add_argument("--token", help="UFM REST API access token")
+    parser.add_argument("--config-file", help="UFM plugin config file path")
     args = parser.parse_args()
 
-    switches = common.get_all_switches(args.host, args.token)
+    host, token = common.read_config_file(args.config_file)
 
-    telemetry = get_telemetry(args.host, args.token, switches)
+    if host and token:
+        switches = common.get_all_switches(host, token)
+        telemetry = get_telemetry(host, token, switches)
 
-    plugin_data = PluginData()
-    plugin_data.add_output_data(json.dumps(telemetry))
-
-    build_perf_data(plugin_data, telemetry)
-
-    plugin_data.exit()
+        plugin_data = PluginData()
+        plugin_data.add_output_data(json.dumps(telemetry))
+        build_perf_data(plugin_data, telemetry)
+        plugin_data.exit()
