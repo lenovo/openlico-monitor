@@ -74,15 +74,15 @@ def get_telemetry(host, token, switches_ports):
             telemetry["time"] = (
                 time if "time" not in telemetry else telemetry["time"]
             )
+
             information["guid"] = guid
-            # {
-            #   'statistics': {
-            #       'metric1': 123,
-            #       'metric2': 456,
-            #       ...
-            #   },
-            #   'guid': 'guid1234',
-            #   'dname': 'switch-lico'
+            statistics = information.pop("statistics")
+            information["stat"] = [statistics[key] for key in metrics]
+            # No need for dname
+            information.pop('dname')
+            # information = {
+            #   'stat': [metric1, metric2, ...],
+            #   'guid': 'guidswitch1',
             # }
 
             # Request data for port statistics
@@ -94,29 +94,24 @@ def get_telemetry(host, token, switches_ports):
             for _, ports in res_p.items():
                 # Port statistics, guid and name
                 port_information = ports["Port"]
+                processed = {}
                 for port_guid, v in port_information.items():
                     v.pop("last_updated")
-                    v["guid"] = port_guid
+                    v.pop("dname")
+                    statistics = v.pop("statistics")
+                    v["stat"] = [statistics[key] for key in metrics]
+
+                    id = port_guid.split("_")[1]
+                    processed[id] = v
 
             # Add port information to switch information
-            information["ports"] = port_information
-            # {
-            #   'statistics': {
-            #       'metric1': 123,
-            #       'metric2': 456,
-            #       ...
-            #   },
+            information["ports"] = processed
+            # information = {
+            #   'stat': [metric1, metric2, ...],
             #   'guid': 'guidswitch1',
-            #   'dname': 'switch-lico'
             #   'ports': {
-            #       'guidport1': {
-            #           'statistics': {
-            #               'metric1': 123,
-            #               'metric2': 456,
-            #               ...
-            #           },
-            #           'guid': 'guidport1',
-            #           'dname': 'switch-port-1'
+            #       'idport1': {
+            #           'stat': [metric1, metric2, ...],
             #       },
             #       ...
             #   },
@@ -164,5 +159,5 @@ if __name__ == "__main__":
 
         plugin_data = PluginData()
         plugin_data.add_output_data(json.dumps(telemetry))
-        build_perf_data(plugin_data, telemetry)
+        plugin_data.add_perf_data(f"ufm_switches={len(switches.keys())}")
         plugin_data.exit()
